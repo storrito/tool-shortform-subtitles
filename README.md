@@ -61,3 +61,7 @@ This runs FFmpeg with VP9 alpha encoding.
 ## Customize
 
 Edit `template/index.html` for caption position, size, color, and animation style.
+
+## License
+
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).
