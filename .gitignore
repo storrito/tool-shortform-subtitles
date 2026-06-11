@@ -1,0 +1,8 @@
+work/
+renders/
+*.mp4
+*.webm
+*.mov
+*.mkv
+.DS_Store
+frames/

@@ -1,0 +1,63 @@
+#!/usr/bin/env bb
+(require '[babashka.cli :as cli]
+         '[babashka.fs :as fs]
+         '[babashka.process :as p]
+         '[clojure.string :as str])
+
+(def fps 30)
+
+(defn usage []
+  (println "Usage: ./assemble-webm")
+  (println)
+  (println "Conventions:")
+  (println "  input:  frames/frame_%06d.png")
+  (println "  output: subtitles.webm"))
+
+(defn die! [message]
+  (binding [*out* *err*]
+    (println message))
+  (System/exit 1))
+
+(defn sh! [& args]
+  (println "+" (str/join " " (map str args)))
+  (let [{:keys [exit]} (apply p/shell {:continue true} (map str args))]
+    (when-not (zero? exit)
+      (throw (ex-info "Command failed" {:exit exit :command args})))))
+
+(defn frame-pattern [frames-dir]
+  (str (fs/path frames-dir "frame_%06d.png")))
+
+(defn -main [& argv]
+  (let [{:keys [args opts]} (cli/parse-args argv {:spec {:help {:alias :h :coerce :boolean}}})
+        frames-dir "frames"
+        output "subtitles.webm"]
+    (when (:help opts)
+      (usage)
+      (System/exit 0))
+    (when (seq args)
+      (usage)
+      (die! "assemble-webm is convention-based and does not accept arguments"))
+    (when-not (fs/exists? (fs/path frames-dir "frame_000001.png"))
+      (die! (str "Missing first frame: " (fs/path frames-dir "frame_000001.png"))))
+    (when-let [parent (fs/parent (fs/path output))]
+      (fs/create-dirs parent))
+    (sh! "ffmpeg" "-y"
+         "-framerate" fps
+         "-start_number" "1"
+         "-i" (frame-pattern frames-dir)
+         "-an"
+         "-c:v" "libvpx-vp9"
+         "-pix_fmt" "yuva420p"
+         "-auto-alt-ref" "0"
+         "-deadline" "good"
+         "-cpu-used" "4"
+         "-metadata:s:v:0" "alpha_mode=1"
+         output)
+    (println "Wrote" output)))
+
+(try
+  (apply -main *command-line-args*)
+  (catch Exception e
+    (binding [*out* *err*]
+      (println "Error:" (.getMessage e)))
+    (System/exit 1)))
