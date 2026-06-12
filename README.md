@@ -67,7 +67,7 @@ The HyperFrames `caption-emoji-pop` template:
 
 `:word-emoji` is merged with the template's built-in defaults. `:word_emoji` and `:wordEmoji` are accepted as aliases. The template keeps its upstream defaults for entries not provided by params.
 
-Output follows the template's own composition size, currently `1920x1080` transparent PNG frames at 30fps.
+Output is `1080x1920` transparent PNG frames at 30fps.
 
 ## Output
 

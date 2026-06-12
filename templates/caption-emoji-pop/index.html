@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=1920, height=1080" />
+    <meta name="viewport" content="width=1080, height=1920" />
     <title>Emoji Pop</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -21,8 +21,8 @@
 
       html,
       body {
-        width: 1920px;
-        height: 1080px;
+        width: 1080px;
+        height: 1920px;
         margin: 0;
         overflow: hidden;
         background: transparent;
@@ -32,8 +32,8 @@
       #emoji-pop {
         pointer-events: none;
         position: relative;
-        width: 1920px;
-        height: 1080px;
+        width: 1080px;
+        height: 1920px;
         overflow: hidden;
         background: transparent;
       }
@@ -57,11 +57,11 @@
 
       .safe-zone {
         position: absolute;
-        bottom: 80px;
+        bottom: 650px;
         left: 50%;
         transform: translateX(-50%);
-        width: 1400px;
-        height: 280px;
+        width: 900px;
+        height: 320px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -71,8 +71,8 @@
         position: absolute;
         left: 0;
         top: 0;
-        width: 1400px;
-        height: 280px;
+        width: 900px;
+        height: 320px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -99,7 +99,7 @@
         justify-content: center;
         gap: 14px;
         width: max-content;
-        max-width: 1400px;
+        max-width: 900px;
         line-height: 1.1;
         white-space: nowrap;
       }
@@ -126,8 +126,8 @@
       data-start="0"
       data-duration="8"
       data-fps="30"
-      data-width="1920"
-      data-height="1080"
+      data-width="1080"
+      data-height="1920"
     >
       <video
         id="avatar-video"
@@ -146,7 +146,7 @@
 
     <script>
       var DURATION = 8;
-      var SAFE_ZONE_WIDTH = 1400;
+      var SAFE_ZONE_WIDTH = 900;
       var CAPTION_FONT_SIZE = 72;
       var MAX_WORDS_PER_GROUP = 3;
       var WORD_SPACING = 14;
