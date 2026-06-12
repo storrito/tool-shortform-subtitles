@@ -56,7 +56,7 @@ RUN SHELL_PATH=$(find /root/.cache/puppeteer/chrome-headless-shell -name "chrome
 
 WORKDIR /app
 COPY src /app/src
-COPY template /app/template
+COPY templates /app/templates
 
 ENV BABASHKA_CLASSPATH=/app/src
 ENTRYPOINT ["bb", "-m", "shortform-subtitles"]

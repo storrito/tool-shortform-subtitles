@@ -7,6 +7,7 @@
    [clojure.edn :as edn]
    [clojure.string :as str]))
 
+(def default-template "caption-clip-wipe")
 (def max-words-per-group 4)
 (def pause-break-seconds 0.28)
 
@@ -31,6 +32,21 @@
     (println message))
   (System/exit 1))
 
+(defn value-name [value]
+  (cond
+    (nil? value) nil
+    (or (keyword? value) (symbol? value)) (name value)
+    (string? value) value
+    :else (str value)))
+
+(defn template-name [params]
+  (let [template (or (some-> (:template params) value-name)
+                     (some-> (get params "template") value-name)
+                     default-template)]
+    (when-not (re-matches #"[a-z0-9][a-z0-9-]*" template)
+      (die! (str "Invalid template name: " template)))
+    template))
+
 (defn sentence-end? [text]
   (boolean (re-find #"[.!?]$" (str text))))
 
@@ -54,16 +70,16 @@
                       :highlight? (true? (:highlight? word))})))))
        vec))
 
-(defn parse-transcript [transcript-path]
-  (edn/read-string (slurp transcript-path)))
+(defn parse-params [params-path]
+  (let [data (edn/read-string (slurp params-path))]
+    (when-not (map? data)
+      (die! (str "Params EDN must contain a map: " params-path)))
+    data))
 
-(defn transcript-words [transcript-path]
-  (let [data (parse-transcript transcript-path)
-        words (if (map? data)
-                (edn-transcript-words data)
-                [])]
+(defn params-words [params params-path]
+  (let [words (edn-transcript-words params)]
     (when (empty? words)
-      (die! (str "No EDN timed words found in transcript: " transcript-path)))
+      (die! (str "No EDN timed words found in params: " params-path)))
     words))
 
 (defn group-word-indexes [words]
@@ -88,14 +104,63 @@
 (defn caption-duration [words]
   (->> words (map :end) (apply max) (+ 0.2) (max 1.0)))
 
-(defn caption-data [transcript-path]
-  (let [words (transcript-words transcript-path)]
-    {:duration (double (caption-duration words))
-     :words words
-     :rawGroups (group-word-indexes words)}))
+(defn parse-duration [value]
+  (cond
+    (number? value) (double value)
+    (string? value) (try
+                      (Double/parseDouble value)
+                      (catch Exception _ nil))
+    :else nil))
 
-(defn caption-data-js [data]
-  (str "window.__captionClipWipeData = "
+(defn clean-word [text]
+  (-> (str text)
+      str/lower-case
+      (str/replace #"[^a-z]" "")))
+
+(defn word-emoji-param [params]
+  (or (:word-emoji params)
+      (:word_emoji params)
+      (:wordEmoji params)
+      (get params "word-emoji")
+      (get params "word_emoji")
+      (get params "wordEmoji")))
+
+(defn normalize-word-emoji [word-emoji]
+  (if (map? word-emoji)
+    (->> word-emoji
+         (keep (fn [[word emoji]]
+                 (let [clean (clean-word (value-name word))]
+                   (when (seq clean)
+                     [clean (str emoji)]))))
+         (into {}))
+    {}))
+
+(defn json-ready [value]
+  (cond
+    (keyword? value) (name value)
+    (symbol? value) (name value)
+    (map? value) (->> value
+                      (map (fn [[k v]]
+                             [(or (value-name k) "") (json-ready v)]))
+                      (into {}))
+    (sequential? value) (mapv json-ready value)
+    :else value))
+
+(defn params-data [params params-path]
+  (let [words (params-words params params-path)
+        duration (or (parse-duration (:duration params))
+                     (parse-duration (get params "duration"))
+                     (caption-duration words))]
+    (-> (json-ready params)
+        (assoc "template" (template-name params)
+               "duration" duration
+               "words" (json-ready words)
+               "rawGroups" (group-word-indexes words)
+               "wordEmoji" (normalize-word-emoji (word-emoji-param params)))
+        (dissoc "word-emoji" "word_emoji"))))
+
+(defn params-data-js [data]
+  (str "window.__hyperframesParams = "
        (json/generate-string data {:pretty true})
        ";\n"))
 
@@ -106,13 +171,18 @@
                        #"data-duration=\"[^\"]+\""
                        (str "data-duration=\"" duration "\"")))))
 
-(defn prepare-project! [project-dir transcript-path]
-  (let [data (caption-data transcript-path)]
-    (fs/delete-tree project-dir)
+(defn prepare-project! [project-dir params-path]
+  (let [params (parse-params params-path)
+        data (params-data params params-path)
+        template-dir (fs/path (app-root) "templates" (get data "template"))]
+    (when-not (fs/directory? template-dir)
+      (die! (str "Unknown template: " (get data "template"))))
+    (when (fs/exists? project-dir)
+      (fs/delete-tree project-dir))
     (fs/create-dirs project-dir)
-    (sh! "cp" "-R" (str (fs/path (app-root) "template") "/.") (str project-dir))
-    (spit (str (fs/path project-dir "caption-data.js")) (caption-data-js data))
-    (patch-index-duration! project-dir (:duration data))))
+    (sh! "cp" "-R" (str template-dir "/.") (str project-dir))
+    (spit (str (fs/path project-dir "params-data.js")) (params-data-js data))
+    (patch-index-duration! project-dir (get data "duration"))))
 
 (defn chown-output! [output-path]
   (let [uid (System/getenv "HOST_UID")
@@ -124,20 +194,23 @@
           (binding [*out* *err*]
             (println "Warning: could not chown output:" (.getMessage e))))))))
 
-(defn render! [{:keys [transcript frames-dir]}]
-  (when-not (and transcript frames-dir)
-    (die! "Container usage: --transcript transcript.edn --frames-dir frames"))
-  (let [project-dir (fs/path "/tmp/shortform-subtitles/project")]
-    (prepare-project! project-dir transcript)
-    (fs/delete-tree frames-dir)
-    (fs/create-dirs frames-dir)
-    (sh-dir! project-dir "hf-render" "--format" "png-sequence" "--output" frames-dir)
-    (chown-output! frames-dir)
-    (println "Wrote" frames-dir)))
+(defn render! [{:keys [params transcript frames-dir]}]
+  (let [params (or params transcript)]
+    (when-not (and params frames-dir)
+      (die! "Container usage: --params params.edn --frames-dir frames"))
+    (let [project-dir (fs/path "/tmp/shortform-subtitles/project")]
+      (prepare-project! project-dir params)
+      (when (fs/exists? frames-dir)
+        (fs/delete-tree frames-dir))
+      (fs/create-dirs frames-dir)
+      (sh-dir! project-dir "hf-render" "--format" "png-sequence" "--output" frames-dir)
+      (chown-output! frames-dir)
+      (println "Wrote" frames-dir))))
 
 (defn -main [& argv]
   (try
-    (render! (:opts (cli/parse-args argv {:spec {:transcript {:coerce :string}
+    (render! (:opts (cli/parse-args argv {:spec {:params {:coerce :string}
+                                                :transcript {:coerce :string}
                                                 :frames-dir {:coerce :string}}})))
     (catch Exception e
       (binding [*out* *err*]

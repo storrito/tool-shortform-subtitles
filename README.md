@@ -1,6 +1,6 @@
 # Short-form subtitle workflow
 
-Dockerized workflow for rendering animated `caption-clip-wipe` subtitles as transparent PNG frames.
+Dockerized workflow for rendering animated subtitle templates as transparent PNG frames.
 
 ## Requirements
 
@@ -10,10 +10,10 @@ Dockerized workflow for rendering animated `caption-clip-wipe` subtitles as tran
 ## Usage
 
 ```bash
-./render transcript.edn
+./render params.edn
 ```
 
-By convention, frames are written next to the transcript:
+By convention, frames are written next to the params file:
 
 ```text
 frames/
@@ -24,27 +24,54 @@ frames/
 
 The script builds the Docker image automatically and then renders inside Docker.
 
-## Transcript format
+## Params format
 
-Only EDN from `storrito/tool-speech-to-text` is supported:
+The params file is an EDN map. The transcript fields stay at the top level and use the existing `storrito/tool-speech-to-text` shape:
 
 ```clojure
-{:segments [{:t 0 :d 3200 :text "First sentence or segment."}]
+{:template :caption-clip-wipe
+ :segments [{:t 0 :d 3200 :text "First sentence or segment."}]
  :words [{:t 0 :d 420 :text "First"}
          {:t 420 :d 380 :text "Storrito" :highlight? true}]}
 ```
 
-`:t` and `:d` are milliseconds. Set `:highlight? true` on a word to render it in the highlight color.
+`:t` and `:d` are milliseconds. Set `:highlight? true` on a word to render it in the highlight color for templates that support highlighting.
+
+If `:template` is omitted, `:caption-clip-wipe` is used.
+
+## Templates
+
+### `:caption-clip-wipe`
+
+The original vertical subtitle overlay:
+
+```clojure
+{:template :caption-clip-wipe
+ :segments [...]
+ :words [...]}
+```
+
+Output is `1080x1920` transparent PNG frames at 30fps.
+
+### `:caption-emoji-pop`
+
+The HyperFrames `caption-emoji-pop` template:
+
+```clojure
+{:template :caption-emoji-pop
+ :segments [...]
+ :words [...]
+ :word-emoji {"tiktok" "🎵"
+              "schedule" "📅"}}
+```
+
+`:word-emoji` is merged with the template's built-in defaults. `:word_emoji` and `:wordEmoji` are accepted as aliases. The template keeps its upstream defaults for entries not provided by params.
+
+Output is `1080x1920` transparent PNG frames at 30fps.
 
 ## Output
 
-The rendered frames are:
-
-```text
-1080x1920 transparent PNG, 30fps
-```
-
-Overlay them later with FFmpeg or another video tool.
+The rendered frames are transparent PNG files. Overlay them later with FFmpeg or another video tool.
 
 ## Optional WebM assembly
 
@@ -60,7 +87,7 @@ This runs FFmpeg with VP9 alpha encoding.
 
 ## Customize
 
-Edit `template/index.html` for caption position, size, color, and animation style.
+Edit templates in `templates/<template-name>/index.html`.
 
 ## License
 

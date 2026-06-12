@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=1080, height=1920" />
     <title>Caption Clip Wipe Subtitle Overlay</title>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
-    <script src="caption-data.js"></script>
+    <script src="params-data.js"></script>
     <style>
       *,
       *::before,
@@ -101,7 +101,7 @@
       (function () {
         window.__timelines = window.__timelines || {};
 
-        var data = window.__captionClipWipeData;
+        var data = window.__hyperframesParams;
         var WORDS = data.words;
         var RAW_GROUPS = data.rawGroups;
         var DURATION = data.duration;
