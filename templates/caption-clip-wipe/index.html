@@ -61,21 +61,27 @@
       }
 
       .wp-word {
+        display: inline-block;
+        padding: 42px 38px 56px;
+        margin: -42px -38px -56px;
+        clip-path: inset(0 100% 0 0);
+        will-change: clip-path, opacity;
+      }
+
+      .wp-word-text {
         font-family: "Poppins", sans-serif;
         font-weight: 800;
-        font-size: 76px;
+        font-size: inherit;
         text-transform: uppercase;
         color: #ffffff;
         display: inline-block;
         letter-spacing: 0.02em;
         line-height: 1.08;
-        padding: 4px 2px 8px;
-        clip-path: inset(0 100% 0 0);
         text-shadow:
           0 4px 0 rgba(0, 0, 0, 0.82),
           0 12px 30px rgba(0, 0, 0, 0.78),
           0 0 22px rgba(0, 0, 0, 0.5);
-        will-change: clip-path, color, opacity;
+        will-change: color, opacity, text-shadow;
       }
     </style>
   </head>
@@ -150,10 +156,13 @@
           groupWords.forEach(function (w, i) {
             var wi = g.wordStart + i;
             var span = document.createElement("span");
+            var text = document.createElement("span");
             span.className = "wp-word";
             span.id = "wp-w-" + wi;
-            span.textContent = w.text.toUpperCase();
             span.style.fontSize = computedSize + "px";
+            text.className = "wp-word-text";
+            text.textContent = w.text.toUpperCase();
+            span.appendChild(text);
             grp.appendChild(span);
           });
 
@@ -163,6 +172,7 @@
           groupWords.forEach(function (w, i) {
             var wi = g.wordStart + i;
             var wordEl = document.getElementById("wp-w-" + wi);
+            var textEl = wordEl.querySelector(".wp-word-text");
             var highlighted = w["highlight?"] === true;
 
             tl.to(
@@ -171,11 +181,16 @@
               w.start,
             );
             if (highlighted) {
-              tl.to(wordEl, { color: "#FFD700", duration: 0.05, overwrite: "auto" }, w.start + 0.1);
+              tl.to(textEl, { color: "#FFD700", duration: 0.05, overwrite: "auto" }, w.start + 0.1);
             }
             tl.to(
-              wordEl,
-              { color: "rgba(255,255,255,0.48)", duration: 0.2, overwrite: "auto" },
+              textEl,
+              {
+                color: "rgba(255,255,255,0.62)",
+                textShadow: "0 3px 0 rgba(0,0,0,0.42), 0 8px 18px rgba(0,0,0,0.38)",
+                duration: 0.2,
+                overwrite: "auto",
+              },
               w.end,
             );
           });
