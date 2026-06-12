@@ -25,41 +25,41 @@
   (System/exit 1))
 
 (defn usage []
-  (println "Usage: ./render <transcript.edn>"))
+  (println "Usage: ./render <params.edn>"))
 
 (defn absolute-path [path]
   (-> path fs/path fs/absolutize fs/normalize str))
 
-(defn output-dir [transcript-path]
-  (str (fs/path (fs/parent (fs/path transcript-path)) "frames")))
+(defn output-dir [params-path]
+  (str (fs/path (fs/parent (fs/path params-path)) "frames")))
 
-(defn docker-run-args [transcript frames-dir]
-  (let [transcript-parent (absolute-path (str (fs/parent (fs/path transcript))))
+(defn docker-run-args [params frames-dir]
+  (let [params-parent (absolute-path (str (fs/parent (fs/path params))))
         output-parent (absolute-path (str (fs/parent (fs/path frames-dir))))]
     ["docker" "run" "--rm"
      "-e" (str "HOST_UID=" (sh-out "id" "-u"))
      "-e" (str "HOST_GID=" (sh-out "id" "-g"))
-     "-v" (str transcript-parent ":/mnt/transcript:ro")
+     "-v" (str params-parent ":/mnt/input:ro")
      "-v" (str output-parent ":/mnt/output")
      image-name
-     "--transcript" (str "/mnt/transcript/" (fs/file-name transcript))
+     "--params" (str "/mnt/input/" (fs/file-name params))
      "--frames-dir" (str "/mnt/output/" (fs/file-name frames-dir))]))
 
 (defn -main [& argv]
   (let [{:keys [args opts]} (cli/parse-args argv {:spec {:help {:alias :h :coerce :boolean}}})
-        [transcript & extra] args]
+        [params & extra] args]
     (when (:help opts)
       (usage)
       (System/exit 0))
-    (when (or (nil? transcript) (seq extra))
+    (when (or (nil? params) (seq extra))
       (usage)
-      (die! "Expected exactly: <transcript.edn>"))
-    (let [transcript-path (absolute-path transcript)
-          frames-dir (absolute-path (output-dir transcript-path))]
-      (when-not (fs/exists? transcript-path)
-        (die! (str "Transcript does not exist: " transcript-path)))
+      (die! "Expected exactly: <params.edn>"))
+    (let [params-path (absolute-path params)
+          frames-dir (absolute-path (output-dir params-path))]
+      (when-not (fs/exists? params-path)
+        (die! (str "Params file does not exist: " params-path)))
       (sh! "docker" "build" "-t" image-name (str (root-dir)))
-      (apply sh! (docker-run-args transcript-path frames-dir))
+      (apply sh! (docker-run-args params-path frames-dir))
       (println "Wrote" frames-dir))))
 
 (try
