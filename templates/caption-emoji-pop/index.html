@@ -157,6 +157,7 @@
       var ENTRY_DURATION = ENTRY_FRAMES / FPS;
       var EXIT_DURATION = EXIT_FRAMES / FPS;
       var FONT_WIDTH_SAFETY = 1.14;
+      var GROUP_HOLD_DURATION = 0.12;
       var PRIMARY_COLOR = "#FFFFFF";
       var ACCENT_COLORS = ["#FF76FF", "#FF0002", "#B2F7FF"];
       var KEYWORDS = new Set(["hyperframes", "html", "professional", "code", "cinema"]);
@@ -454,11 +455,19 @@
       window.__timelines = window.__timelines || {};
       var tl = gsap.timeline({ paused: true });
 
-      var visibleStarts = GROUPS.map(function (group, groupIndex) {
+      var visibleStarts = [];
+      var previousVisibleEnd = 0;
+      GROUPS.forEach(function (group, groupIndex) {
         var prev = GROUPS[groupIndex - 1];
         var availableGap = prev ? Math.max(0, group.start - prev.end) : ENTRY_DURATION;
         var entryLead = Math.min(ENTRY_DURATION, availableGap);
-        return Math.max(0, group.start - entryLead);
+        var idealStart = Math.max(0, group.start - entryLead);
+        var visibleStart = Math.max(idealStart, previousVisibleEnd);
+        visibleStarts.push(visibleStart);
+        previousVisibleEnd = Math.min(
+          DURATION,
+          Math.max(visibleStart + ENTRY_DURATION, group.end + GROUP_HOLD_DURATION),
+        );
       });
 
       var allGroupEls = GROUPS.map(function (_, i) {
@@ -469,11 +478,8 @@
         var groupEl = allGroupEls[groupIndex];
         var visibleStart = visibleStarts[groupIndex];
         var visibleEnd = groupIndex < GROUPS.length - 1 ? visibleStarts[groupIndex + 1] : DURATION;
-        var exitStart = Math.max(visibleStart, visibleEnd - EXIT_DURATION);
-
-        allGroupEls.forEach(function (otherEl, otherIndex) {
-          if (otherIndex !== groupIndex) tl.set(otherEl, { opacity: 0 }, visibleStart);
-        });
+        visibleEnd = Math.max(visibleEnd, Math.min(DURATION, group.end));
+        var exitStart = Math.max(group.end, visibleEnd - EXIT_DURATION);
 
         tl.set(groupEl, { opacity: 0, scaleX: 0.8, scaleY: 1 }, visibleStart);
         tl.to(

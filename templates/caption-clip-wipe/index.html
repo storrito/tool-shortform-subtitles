@@ -111,6 +111,21 @@
         var WORDS = data.words;
         var RAW_GROUPS = data.rawGroups;
         var DURATION = data.duration;
+        var WORD_REVEAL_MAX = 0.3;
+        var WORD_REVEAL_MIN = 0.045;
+        var WORD_REVEAL_SPOKEN_RATIO = 0.55;
+        var GROUP_TAIL = 0.5;
+        var GROUP_END_GAP = 0.02;
+        var LAST_WORD_HOLD = 0.07;
+        var EXIT_DURATION = 0.25;
+        var EXIT_STAGGER = 0.04;
+
+        function wordRevealDuration(word) {
+          var spokenDuration = Math.max(0.03, Number(word.end) - Number(word.start));
+          var targetDuration = Math.max(WORD_REVEAL_MIN, spokenDuration * WORD_REVEAL_SPOKEN_RATIO);
+          var latestReadableDuration = Math.max(0.025, spokenDuration * 0.85);
+          return Math.min(WORD_REVEAL_MAX, targetDuration, latestReadableDuration);
+        }
 
         document
           .getElementById("caption-clip-wipe")
@@ -132,8 +147,14 @@
         var GROUPS = RAW_GROUPS.map(function (pair, gi) {
           var ws = pair[0],
             we = pair[1];
+          var lastWord = WORDS[we];
           var nextStart = gi + 1 < RAW_GROUPS.length ? WORDS[RAW_GROUPS[gi + 1][0]].start : DURATION;
-          var gEnd = Math.min(WORDS[we].end + 0.5, nextStart - 0.05);
+          var naturalEnd = Math.max(
+            lastWord.end + GROUP_TAIL,
+            lastWord.start + wordRevealDuration(lastWord) + LAST_WORD_HOLD,
+          );
+          var hardEnd = Math.min(DURATION, Math.max(lastWord.end, nextStart - GROUP_END_GAP));
+          var gEnd = Math.max(lastWord.end, Math.min(naturalEnd, hardEnd));
           return { wordStart: ws, wordEnd: we, start: WORDS[ws].start, end: gEnd };
         });
 
@@ -177,7 +198,7 @@
 
             tl.to(
               wordEl,
-              { clipPath: "inset(0 0% 0 0)", duration: 0.3, ease: "power2.out" },
+              { clipPath: "inset(0 0% 0 0)", duration: wordRevealDuration(w), ease: "power2.out" },
               w.start,
             );
             if (highlighted) {
@@ -196,16 +217,30 @@
           });
 
           var wordEls = grp.querySelectorAll(".wp-word");
-          tl.to(
-            wordEls,
-            {
-              clipPath: "inset(0 0% 0 100%)",
-              duration: 0.25,
-              stagger: 0.04,
-              ease: "power2.in",
-            },
-            g.end - 0.2,
+          var lastWord = WORDS[g.wordEnd];
+          var safeExitStart = Math.max(
+            lastWord.end,
+            lastWord.start + wordRevealDuration(lastWord) + LAST_WORD_HOLD,
           );
+          var exitStart = Math.max(g.start, g.end - EXIT_DURATION);
+          var exitTimeAvailable = g.end - safeExitStart;
+
+          if (exitStart < safeExitStart && exitTimeAvailable >= 1 / 30) {
+            exitStart = safeExitStart;
+          }
+
+          if (exitStart >= safeExitStart && g.end - exitStart >= 1 / 30) {
+            tl.to(
+              wordEls,
+              {
+                clipPath: "inset(0 0% 0 100%)",
+                duration: Math.min(EXIT_DURATION, g.end - exitStart),
+                stagger: EXIT_STAGGER,
+                ease: "power2.in",
+              },
+              exitStart,
+            );
+          }
           tl.set(grp, { visibility: "hidden", opacity: 0 }, g.end);
         });
 

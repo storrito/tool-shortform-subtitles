@@ -10,6 +10,7 @@
 (def default-template "caption-clip-wipe")
 (def max-words-per-group 4)
 (def pause-break-seconds 0.28)
+(def caption-tail-seconds 0.8)
 
 (defn app-root []
   (or (System/getenv "APP_DIR") "/app"))
@@ -102,7 +103,7 @@
         (seq current) (conj [(first current) (peek current)])))))
 
 (defn caption-duration [words]
-  (->> words (map :end) (apply max) (+ 0.2) (max 1.0)))
+  (->> words (map :end) (apply max) (+ caption-tail-seconds) (max 1.0)))
 
 (defn parse-duration [value]
   (cond
